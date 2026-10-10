@@ -1,0 +1,6 @@
+{
+  "name": "SELLORA - Multi-Vendor Marketplace",
+  "description": "Full-stack multi-vendor marketplace for Bangladesh. Authenticated multi-role platform for customers, approved sellers, and admins.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

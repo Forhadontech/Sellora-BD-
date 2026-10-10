@@ -1,0 +1,189 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with role-based access control for customers, sellers, and admins.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "format": "email", "maxLength": 128 },
+        "displayName": { "type": "string", "maxLength": 100 },
+        "phone": { "type": "string", "maxLength": 20 },
+        "role": { "type": "string", "enum": ["customer", "seller", "admin"] },
+        "status": { "type": "string", "enum": ["active", "suspended"] },
+        "defaultAddress": { "type": "string", "maxLength": 300 },
+        "defaultDistrict": { "type": "string", "maxLength": 100 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "displayName", "role", "status", "createdAt"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "Authorized administrators record for privilege validation.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "format": "email", "maxLength": 128 },
+        "role": { "type": "string", "enum": ["admin"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role", "createdAt"]
+    },
+    "Store": {
+      "title": "Store",
+      "description": "Seller store profile requiring administrator review and approval.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "ownerId": { "type": "string", "maxLength": 128 },
+        "storeName": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "slug": { "type": "string", "maxLength": 120 },
+        "description": { "type": "string", "maxLength": 1000 },
+        "contactPhone": { "type": "string", "maxLength": 20 },
+        "businessLocation": { "type": "string", "maxLength": 200 },
+        "district": { "type": "string", "maxLength": 80 },
+        "logoUrl": { "type": "string", "maxLength": 1000 },
+        "coverUrl": { "type": "string", "maxLength": 1000 },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected", "suspended"] },
+        "rejectionReason": { "type": "string", "maxLength": 500 },
+        "rating": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "ownerId", "storeName", "contactPhone", "businessLocation", "district", "status", "createdAt"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Marketplace product listed by an approved seller store.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "storeId": { "type": "string", "maxLength": 128 },
+        "ownerId": { "type": "string", "maxLength": 128 },
+        "nameEn": { "type": "string", "minLength": 2, "maxLength": 200 },
+        "nameBn": { "type": "string", "minLength": 2, "maxLength": 200 },
+        "descriptionEn": { "type": "string", "maxLength": 3000 },
+        "descriptionBn": { "type": "string", "maxLength": 3000 },
+        "categorySlug": { "type": "string", "maxLength": 80 },
+        "price": { "type": "number" },
+        "previousPrice": { "type": "number" },
+        "stock": { "type": "integer" },
+        "images": { "type": "array" },
+        "status": { "type": "string", "enum": ["draft", "published", "archived"] },
+        "isFeatured": { "type": "boolean" },
+        "unpublishReason": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "storeId", "ownerId", "nameEn", "nameBn", "categorySlug", "price", "stock", "images", "status", "createdAt"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Product taxonomy managed by administrators.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "slug": { "type": "string", "maxLength": 80 },
+        "nameEn": { "type": "string", "maxLength": 100 },
+        "nameBn": { "type": "string", "maxLength": 100 },
+        "icon": { "type": "string", "maxLength": 60 },
+        "isActive": { "type": "boolean" },
+        "displayOrder": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "slug", "nameEn", "nameBn", "isActive", "displayOrder"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Customer purchase document containing verified sub-orders.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "orderNumber": { "type": "string", "maxLength": 40 },
+        "customerId": { "type": "string", "maxLength": 128 },
+        "customerName": { "type": "string", "maxLength": 100 },
+        "customerPhone": { "type": "string", "maxLength": 20 },
+        "subtotal": { "type": "number" },
+        "deliveryFee": { "type": "number" },
+        "totalAmount": { "type": "number" },
+        "paymentMethod": { "type": "string", "enum": ["cod", "bkash", "nagad"] },
+        "paymentStatus": { "type": "string", "enum": ["pending", "verified", "failed"] },
+        "paymentTrxId": { "type": "string", "maxLength": 80 },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled"] },
+        "itemsCount": { "type": "integer" },
+        "idempotencyKey": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "orderNumber", "customerId", "customerName", "customerPhone", "subtotal", "deliveryFee", "totalAmount", "paymentMethod", "paymentStatus", "status", "idempotencyKey", "createdAt"]
+    },
+    "SubOrder": {
+      "title": "SubOrder",
+      "description": "Store-specific items order partition managed by the individual seller and customer.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "orderId": { "type": "string", "maxLength": 128 },
+        "storeId": { "type": "string", "maxLength": 128 },
+        "storeName": { "type": "string", "maxLength": 100 },
+        "sellerId": { "type": "string", "maxLength": 128 },
+        "customerId": { "type": "string", "maxLength": 128 },
+        "items": { "type": "array" },
+        "subtotal": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "orderId", "storeId", "sellerId", "customerId", "items", "subtotal", "status", "createdAt"]
+    },
+    "Setting": {
+      "title": "Setting",
+      "description": "Global marketplace operational settings.",
+      "type": "object",
+      "properties": {
+        "deliveryFeeInsideDhaka": { "type": "number" },
+        "deliveryFeeOutsideDhaka": { "type": "number" },
+        "bkashNumber": { "type": "string", "maxLength": 20 },
+        "nagadNumber": { "type": "string", "maxLength": 20 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["deliveryFeeInsideDhaka", "deliveryFeeOutsideDhaka", "bkashNumber", "nagadNumber"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profile with role and contact information."
+    },
+    "/admins/{adminId}": {
+      "schema": { "$ref": "#/entities/Admin" },
+      "description": "Admin identity records."
+    },
+    "/stores/{storeId}": {
+      "schema": { "$ref": "#/entities/Store" },
+      "description": "Seller store profile and verification status."
+    },
+    "/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Product catalog items."
+    },
+    "/categories/{categoryId}": {
+      "schema": { "$ref": "#/entities/Category" },
+      "description": "Public taxonomy catalog categories."
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Parent customer orders."
+    },
+    "/subOrders/{subOrderId}": {
+      "schema": { "$ref": "#/entities/SubOrder" },
+      "description": "Seller partitioned order items."
+    },
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/Setting" },
+      "description": "Platform delivery and payment configuration."
+    }
+  }
+}

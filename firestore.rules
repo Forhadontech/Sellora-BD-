@@ -1,0 +1,160 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email in [
+          'forhad93706@gmail.com',
+          'forhadvau234@gmail.com',
+          'forhadvau209@gmail.com',
+          'forhadvau218@gmail.com'
+        ] ||
+        (request.auth.token.email != null && request.auth.token.email.matches('.*forhad.*@gmail[.]com')) ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // 1. Admins Collection
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // 2. Users Collection (PII protected)
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId) &&
+        (incoming().role == 'customer' || (incoming().role == 'admin' && isAdmin())) &&
+        incoming().status == 'active' &&
+        incoming().uid == userId;
+      allow update: if isAdmin() || (
+        isOwner(userId) &&
+        incoming().role == existing().role &&
+        incoming().status == existing().status &&
+        incoming().uid == existing().uid &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'phone', 'defaultAddress', 'defaultDistrict', 'updatedAt'])
+      );
+      allow delete: if isAdmin();
+    }
+
+    // 3. Stores Collection
+    match /stores/{storeId} {
+      allow get: if resource.data.status == 'approved' || (isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin()));
+      allow list: if true;
+      allow create: if isSignedIn() &&
+        incoming().ownerId == request.auth.uid &&
+        incoming().status == 'pending';
+      allow update: if isAdmin() || (
+        isSignedIn() &&
+        resource.data.ownerId == request.auth.uid &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().status == existing().status &&
+        existing().status != 'suspended' &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'storeName', 'slug', 'description', 'contactPhone',
+          'businessLocation', 'district', 'logoUrl', 'coverUrl', 'updatedAt'
+        ])
+      );
+      allow delete: if isAdmin();
+    }
+
+    // 4. Products Collection
+    match /products/{productId} {
+      allow get: if resource.data.status == 'published' || (isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin()));
+      allow list: if true;
+      allow create: if isSignedIn() &&
+        incoming().ownerId == request.auth.uid &&
+        incoming().isFeatured == false &&
+        incoming().price > 0 &&
+        incoming().stock >= 0;
+      allow update: if isAdmin() || (
+        isSignedIn() &&
+        resource.data.ownerId == request.auth.uid &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().storeId == existing().storeId &&
+        incoming().isFeatured == existing().isFeatured &&
+        incoming().price > 0 &&
+        incoming().stock >= 0 &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'nameEn', 'nameBn', 'descriptionEn', 'descriptionBn',
+          'categorySlug', 'price', 'previousPrice', 'stock',
+          'images', 'status', 'updatedAt'
+        ])
+      ) || (
+        isSignedIn() &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['stock', 'updatedAt']) &&
+        incoming().stock >= 0 &&
+        incoming().stock < existing().stock
+      );
+      allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+    }
+
+    // 5. Categories Collection
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 6. Orders Collection
+    match /orders/{orderId} {
+      allow get: if isSignedIn() && (isAdmin() || resource.data.customerId == request.auth.uid);
+      allow list: if isSignedIn() && (isAdmin() || resource.data.customerId == request.auth.uid);
+      allow create: if isSignedIn() && (incoming().customerId == request.auth.uid || isAdmin());
+      allow update: if isAdmin() || (
+        isSignedIn() &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+      );
+      allow delete: if isAdmin();
+    }
+
+    // 7. Sub-Orders Collection
+    match /subOrders/{subOrderId} {
+      allow get: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.sellerId == request.auth.uid ||
+        resource.data.customerId == request.auth.uid
+      );
+      allow list: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.sellerId == request.auth.uid ||
+        resource.data.customerId == request.auth.uid
+      );
+      allow create: if isSignedIn() && (incoming().customerId == request.auth.uid || isAdmin());
+      allow update: if isAdmin() || (
+        isSignedIn() &&
+        (resource.data.sellerId == request.auth.uid || resource.data.customerId == request.auth.uid) &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+      );
+      allow delete: if isAdmin();
+    }
+
+    // 8. Settings Collection
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}
