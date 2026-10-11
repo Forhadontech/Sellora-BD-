@@ -21,14 +21,11 @@ service cloud.firestore {
 
     function isAdmin() {
       return isSignedIn() && (
-        request.auth.token.email in [
-          'forhad93706@gmail.com',
-          'forhadvau234@gmail.com',
-          'forhadvau209@gmail.com',
-          'forhadvau218@gmail.com'
-        ] ||
-        (request.auth.token.email != null && request.auth.token.email.matches('.*forhad.*@gmail[.]com')) ||
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        (request.auth.token.email != null && request.auth.token.email.lower() == 'forhad93706@gmail.com') ||
+        (
+          exists(/databases/$(database)/documents/admins/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.email.lower() == 'forhad93706@gmail.com'
+        )
       );
     }
 
@@ -39,7 +36,12 @@ service cloud.firestore {
     // 1. Admins Collection
     match /admins/{adminId} {
       allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow write: if isAdmin() || (
+        isSignedIn() &&
+        request.auth.token.email != null &&
+        request.auth.token.email.lower() == 'forhad93706@gmail.com' &&
+        request.auth.uid == adminId
+      );
     }
 
     // 2. Users Collection (PII protected)
@@ -47,15 +49,14 @@ service cloud.firestore {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
       allow create: if isOwner(userId) &&
-        (incoming().role == 'customer' || (incoming().role == 'admin' && isAdmin())) &&
+        incoming().uid == userId &&
         incoming().status == 'active' &&
-        incoming().uid == userId;
+        (incoming().role == 'customer' || (incoming().role == 'admin' && isAdmin()));
       allow update: if isAdmin() || (
         isOwner(userId) &&
         incoming().role == existing().role &&
         incoming().status == existing().status &&
-        incoming().uid == existing().uid &&
-        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'phone', 'defaultAddress', 'defaultDistrict', 'updatedAt'])
+        incoming().uid == existing().uid
       );
       allow delete: if isAdmin();
     }
@@ -120,7 +121,7 @@ service cloud.firestore {
 
     // 6. Orders Collection
     match /orders/{orderId} {
-      allow get: if isSignedIn() && (isAdmin() || resource.data.customerId == request.auth.uid);
+      allow get: if isSignedIn();
       allow list: if isSignedIn() && (isAdmin() || resource.data.customerId == request.auth.uid);
       allow create: if isSignedIn() && (incoming().customerId == request.auth.uid || isAdmin());
       allow update: if isAdmin() || (
@@ -146,7 +147,7 @@ service cloud.firestore {
       allow update: if isAdmin() || (
         isSignedIn() &&
         (resource.data.sellerId == request.auth.uid || resource.data.customerId == request.auth.uid) &&
-        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt', 'notes', 'sellerNote'])
       );
       allow delete: if isAdmin();
     }

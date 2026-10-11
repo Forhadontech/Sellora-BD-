@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../locales/LanguageContext';
-import { useAuth, ADMIN_EMAILS } from '../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import {
   UserProfile,
   Store,
@@ -31,7 +31,8 @@ import {
   verifyOrderPayment,
   updateOrderStatusAdmin,
   updateSystemSettings,
-  seedPlatformAdminData
+  seedPlatformAdminData,
+  cleanupUnauthorizedAdmins
 } from '../../services/adminService';
 import { getSettings } from '../../services/orderService';
 import { formatBDT, formatDate } from '../../utils/formatters';
@@ -202,6 +203,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
         setAnnouncementBn(set.announcementBn || '');
         setAllowCod(set.allowCod !== false);
       }
+
+      // Automatically ensure no other admin documents remain
+      if (currentUser?.email?.toLowerCase().trim() === 'forhad93706@gmail.com') {
+        cleanupUnauthorizedAdmins().catch(() => {});
+      }
     } catch (e) {
       console.error('Error loading admin panel:', e);
     } finally {
@@ -232,27 +238,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
   if (!currentUser) {
     return (
       <div className="max-w-md mx-auto py-20 px-4 text-center space-y-5">
-        <div className="w-16 h-16 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto border border-emerald-200">
+        <div className="w-16 h-16 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center mx-auto border border-slate-200">
           <Shield className="w-8 h-8" />
         </div>
         <h2 className="text-xl font-bold text-slate-900">
-          {isBn ? 'এডমিন লগইন প্রয়োজন' : 'Administrator Login Required'}
+          {isBn ? 'অ্যাডমিন প্যানেল সুরক্ষিত' : 'Administrator Sign-In Required'}
         </h2>
         <p className="text-xs text-slate-600 leading-relaxed">
           {isBn
-            ? 'মার্কেটপ্লেস এডমিন প্যানেল সুরক্ষিত। প্রবেশ করতে আপনার অনুমোদিত গুগল অ্যাকাউন্ট দিয়ে সাইন-ইন করুন।'
-            : 'The marketplace administrator panel is restricted. Please sign in with an authorized Google administrator account.'}
+            ? 'এই পৃষ্ঠাটি শুধুমাত্র সিস্টেম অ্যাডমিনের জন্য সংরক্ষিত। পরিচালনা করতে আপনার অ্যাডমিন অ্যাকাউন্টে সাইন-ইন করুন।'
+            : 'This page is restricted to administrators. Please sign in with your administrator account.'}
         </p>
-        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-600 text-left space-y-1">
-          <p className="font-semibold text-slate-800">{isBn ? 'অনুমোদিত এডমিন অ্যাকাউন্ট:' : 'Authorized Admin Accounts:'}</p>
-          <ul className="list-disc list-inside text-[11px] font-mono text-emerald-700">
-            {ADMIN_EMAILS.map(em => <li key={em}>{em}</li>)}
-          </ul>
-        </div>
         <div className="flex flex-col gap-2.5 pt-2">
-          <Button variant="primary" onClick={() => signInWithGoogle()}>
-            <Sparkles className="w-4 h-4 mr-1.5" />
-            {isBn ? 'গুগল দিয়ে এডমিন সাইন-ইন করুন' : 'Sign in with Google'}
+          <Button variant="primary" onClick={() => onNavigate('login')}>
+            <Key className="w-4 h-4 mr-1.5" />
+            {isBn ? 'অ্যাডমিন লগইন করুন' : 'Sign in to Admin'}
           </Button>
           <Button variant="outline" onClick={() => onNavigate('home')}>
             {t('home')}
@@ -262,30 +262,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
     );
   }
 
-  // Strict Authorization Guard if logged in with non-admin email
+  // Strict Authorization Guard if logged in with non-admin account
   if (!isAdmin && !isFirstAdminEmail) {
     return (
       <div className="max-w-md mx-auto py-20 px-4 text-center space-y-4">
         <div className="w-16 h-16 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto border border-red-200">
           <Shield className="w-8 h-8" />
         </div>
-        <h2 className="text-xl font-bold text-slate-900">403 Access Denied</h2>
+        <h2 className="text-xl font-bold text-red-700">
+          {isBn ? 'অ্যাক্সেস ডিনাইড (Access Denied)' : '403 Access Denied'}
+        </h2>
         <p className="text-xs text-slate-600 leading-relaxed">
-          {t('accessDeniedAdminOnly')}
+          {isBn
+            ? 'আপনার এখানে অ্যাক্সেস নেই। এই পেজটি শুধুমাত্র অনুমোদিত অ্যাডমিন অ্যাকাউন্টের জন্য সংরক্ষিত।'
+            : 'Access Denied. You do not have permission to view or manage the administrator panel.'}
         </p>
-        <div className="text-[11px] text-slate-600 bg-slate-100 p-3 rounded-lg border border-slate-200 text-left space-y-1">
-          <p>Signed in as: <strong className="text-slate-900">{currentUser?.email}</strong></p>
-          <p className="text-slate-500">This account does not have administrator privileges.</p>
-          <p className="pt-1 font-semibold text-slate-700">Authorized accounts:</p>
-          <code className="text-[10px] text-emerald-800 font-mono block">{ADMIN_EMAILS.join(', ')}</code>
-        </div>
-        <div className="flex flex-col gap-2 pt-2">
-          <Button variant="primary" onClick={() => signInWithGoogle()}>
-            <Sparkles className="w-4 h-4 mr-1.5" />
-            {isBn ? 'অন্য গুগল একাউন্টে সাইন-ইন' : 'Switch Google Account'}
-          </Button>
-          <Button variant="outline" onClick={() => onNavigate('home')}>
-            {t('home')}
+        <div className="flex flex-col gap-2 pt-3">
+          <Button variant="primary" onClick={() => onNavigate('home')}>
+            {isBn ? 'হোম পেজে ফিরে যান' : 'Back to Home'}
           </Button>
         </div>
       </div>
@@ -1551,16 +1545,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
               <div className="border-b border-slate-100 pb-3 flex items-center gap-2">
                 <Key className="w-5 h-5 text-emerald-900" />
                 <h3 className="text-sm font-bold text-slate-900 uppercase">
-                  {t('firstAdminSetup')} ({ADMIN_EMAILS.join(', ')})
+                  {t('firstAdminSetup')}
                 </h3>
               </div>
 
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs space-y-2 text-slate-700 leading-relaxed">
                 <p className="font-bold text-slate-900">নিরাপদ ওয়ান-টাইম এডমিন অনুমোদন প্রক্রিয়া:</p>
                 <ol className="list-decimal pl-5 space-y-1 text-slate-600">
-                  <li>এই প্রক্রিয়াটি কঠোরভাবে মনোনীত মাস্টার ইমেইলসমূহের সাথে আবদ্ধ: <code>{ADMIN_EMAILS.join(', ')}</code>।</li>
+                  <li>এই প্রক্রিয়াটি কঠোরভাবে সিস্টেমের মনোনীত অ্যাডমিন অ্যাকাউন্টের সাথে আবদ্ধ।</li>
                   <li>ব্রাউজার ক্লায়েন্ট থেকে কোনো সাধারণ ব্যবহারকারী নিজের ভূমিকা পরিবর্তন করতে পারে না; এটি ফায়ারস্টোর সিকিউরিটি রুলস দ্বারা সুরক্ষিত।</li>
-                  <li>নিচের বাটনে ক্লিক করলে আপনার বর্তমান অধিবেশন যাচাই করা হবে এবং ফায়ারস্টোরে <code>admins/{currentUser?.uid}</code> রেকর্ড প্রস্তুত হবে।</li>
+                  <li>নিচের বাটনে ক্লিক করলে আপনার বর্তমান অধিবেশন যাচাই করা হবে এবং ফায়ারস্টোরে অ্যাডমিন রেকর্ড প্রস্তুত হবে।</li>
                 </ol>
               </div>
 
@@ -1574,7 +1568,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
               {bootstrapSuccess === false && (
                 <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded-xl text-xs flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
-                  <span>Bootstrap failed. Ensure your account is signed in as {ADMIN_EMAILS.join(' or ')}.</span>
+                  <span>{isBn ? 'সেটআপ ব্যর্থ হয়েছে। অনুগ্রহ করে অনুমোদিত অ্যাডমিন অ্যাকাউন্ট দিয়ে চেষ্টা করুন।' : 'Bootstrap failed. Ensure your account is authorized.'}</span>
                 </div>
               )}
 

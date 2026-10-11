@@ -5,6 +5,7 @@ import {
   getDocs,
   setDoc,
   updateDoc,
+  deleteDoc,
   query,
   where,
   orderBy,
@@ -358,4 +359,30 @@ export async function updateSystemSettings(settings: Partial<SystemSettings>): P
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, 'settings/config');
   }
+}
+
+export async function cleanupUnauthorizedAdmins(): Promise<{ removedAdmins: number; demotedUsers: number }> {
+  let removedAdmins = 0;
+  let demotedUsers = 0;
+  try {
+    const adminDocs = await getDocs(collection(db, 'admins'));
+    for (const aDoc of adminDocs.docs) {
+      const data = aDoc.data();
+      if (data.email?.toLowerCase().trim() !== 'forhad93706@gmail.com') {
+        await deleteDoc(aDoc.ref);
+        removedAdmins++;
+      }
+    }
+    const userDocs = await getDocs(collection(db, 'users'));
+    for (const uDoc of userDocs.docs) {
+      const data = uDoc.data() as UserProfile;
+      if (data.role === 'admin' && data.email?.toLowerCase().trim() !== 'forhad93706@gmail.com') {
+        await updateDoc(uDoc.ref, { role: 'customer', updatedAt: new Date().toISOString() });
+        demotedUsers++;
+      }
+    }
+  } catch (err) {
+    console.warn('Error during admin cleanup:', err);
+  }
+  return { removedAdmins, demotedUsers };
 }

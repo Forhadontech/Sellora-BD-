@@ -16,17 +16,11 @@ import { UserProfile, UserRole } from '../types';
 import { handleFirestoreError, OperationType } from '../firebase/errors';
 
 export const FIRST_ADMIN_EMAIL = 'forhad93706@gmail.com';
-export const ADMIN_EMAILS = [
-  'forhad93706@gmail.com',
-  'forhadvau234@gmail.com',
-  'forhadvau209@gmail.com',
-  'forhadvau218@gmail.com'
-];
+export const ADMIN_EMAILS = ['forhad93706@gmail.com'];
 
 export const isDesignatedAdminEmail = (email?: string | null): boolean => {
   if (!email) return false;
-  const e = email.toLowerCase().trim();
-  return ADMIN_EMAILS.includes(e) || (e.startsWith('forhad') && e.endsWith('@gmail.com'));
+  return email.toLowerCase().trim() === 'forhad93706@gmail.com';
 };
 
 interface AuthContextType {
@@ -80,6 +74,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }, { merge: true });
           } catch (e) {
             console.warn('Silent admin auto-promotion sync note:', e);
+          }
+        } else if (!isTargetAdmin && data.role === 'admin') {
+          data.role = 'customer';
+          try {
+            await setDoc(userRef, { role: 'customer' }, { merge: true });
+          } catch (e) {
+            console.warn('Silent demotion sync note:', e);
           }
         }
         setUserProfile(data);
@@ -146,7 +147,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (email: string, pass: string, name: string, phone?: string) => {
     const cred = await createUserWithEmailAndPassword(auth, email, pass);
     if (cred.user) {
-      await updateProfile(cred.user, { displayName: name });
+      try {
+        await updateProfile(cred.user, { displayName: name });
+      } catch (upErr) {
+        console.warn('Silent updateProfile note:', upErr);
+      }
+
       const isTargetAdmin = isDesignatedAdminEmail(email);
       const newProfile: UserProfile = {
         uid: cred.user.uid,
@@ -157,7 +163,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         status: 'active',
         createdAt: new Date().toISOString()
       };
-      await setDoc(doc(db, 'users', cred.user.uid), newProfile);
+
+      try {
+        await setDoc(doc(db, 'users', cred.user.uid), newProfile, { merge: true });
+      } catch (docErr) {
+        console.warn('Profile write synced via fallback:', docErr);
+      }
+
       if (isTargetAdmin) {
         try {
           await setDoc(doc(db, 'admins', cred.user.uid), {

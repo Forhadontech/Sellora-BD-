@@ -5,7 +5,8 @@ import {
   getDocs,
   query,
   where,
-  runTransaction
+  runTransaction,
+  updateDoc
 } from 'firebase/firestore';
 import { db, auth } from '../firebase/config';
 import {
@@ -424,50 +425,49 @@ export async function updateSubOrderStatus(
   isAdmin: boolean = false
 ): Promise<void> {
   const validTransitions: Record<OrderStatus, OrderStatus[]> = {
-    pending: ['confirmed', 'cancelled'],
-    confirmed: ['processing', 'cancelled'],
-    processing: ['shipped'],
-    shipped: ['delivered'],
-    delivered: [],
-    cancelled: []
+    pending: ['confirmed', 'processing', 'cancelled'],
+    confirmed: ['pending', 'processing', 'shipped', 'cancelled'],
+    processing: ['confirmed', 'shipped', 'delivered', 'cancelled'],
+    shipped: ['processing', 'delivered', 'cancelled'],
+    delivered: ['shipped'],
+    cancelled: ['pending', 'confirmed']
   };
 
   try {
-    await runTransaction(db, async (txn) => {
-      // 1. ALL READS FIRST
-      const subRef = doc(db, 'subOrders', subOrderId);
-      const subSnap = await txn.get(subRef);
-      if (!subSnap.exists()) throw new Error('Sub-order not found.');
+    const subRef = doc(db, 'subOrders', subOrderId);
+    const subSnap = await getDoc(subRef);
+    if (!subSnap.exists()) throw new Error('Sub-order not found.');
 
-      const data = subSnap.data() as SubOrder;
-      if (!isAdmin && data.sellerId !== callerSellerId) {
-        throw new Error('Unauthorized: You can only update sub-orders for your store.');
+    const data = subSnap.data() as SubOrder;
+    if (!isAdmin && data.sellerId !== callerSellerId) {
+      throw new Error('Unauthorized: You can only update sub-orders for your store.');
+    }
+
+    if (!isAdmin) {
+      const allowed = validTransitions[data.status] || [];
+      if (!allowed.includes(newStatus)) {
+        throw new Error(`Invalid status transition from "${data.status}" to "${newStatus}".`);
       }
+    }
 
-      if (!isAdmin) {
-        const allowed = validTransitions[data.status] || [];
-        if (!allowed.includes(newStatus)) {
-          throw new Error(`Invalid status transition from "${data.status}" to "${newStatus}".`);
-        }
-      }
+    // Update subOrder
+    await updateDoc(subRef, {
+      status: newStatus,
+      updatedAt: new Date().toISOString()
+    });
 
-      // Read parent order BEFORE any writes
-      const parentRef = doc(db, 'orders', data.orderId);
-      const parentSnap = await txn.get(parentRef);
-
-      // 2. NOW EXECUTE ALL WRITES
-      txn.update(subRef, {
-        status: newStatus,
-        updatedAt: new Date().toISOString()
-      });
-
-      if (parentSnap.exists()) {
-        txn.update(parentRef, {
+    // Sync parent order status if possible
+    if (data.orderId) {
+      try {
+        const parentRef = doc(db, 'orders', data.orderId);
+        await updateDoc(parentRef, {
           status: newStatus,
           updatedAt: new Date().toISOString()
         });
+      } catch (parentErr) {
+        console.warn('Parent order status sync skipped:', parentErr);
       }
-    });
+    }
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, `subOrders/${subOrderId}`);
   }

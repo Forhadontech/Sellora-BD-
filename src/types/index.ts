@@ -10,6 +10,9 @@ export interface UserProfile {
   status: UserStatus;
   defaultAddress?: string;
   defaultDistrict?: string;
+  avatarUrl?: string;
+  coverUrl?: string;
+  bio?: string;
   createdAt: string;
   updatedAt?: string;
 }

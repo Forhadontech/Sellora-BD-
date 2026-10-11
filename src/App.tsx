@@ -4,6 +4,7 @@ import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import { Navbar } from './components/layout/Navbar';
 import { Footer } from './components/layout/Footer';
+import { BottomNav } from './components/layout/BottomNav';
 
 // Pages
 import { HomePage } from './pages/HomePage';
@@ -70,7 +71,7 @@ export default function App() {
     <LanguageProvider>
       <AuthProvider>
         <CartProvider>
-          <div className="min-h-screen flex flex-col bg-slate-50 text-slate-800 antialiased selection:bg-emerald-100 selection:text-emerald-900">
+          <div className="min-h-screen flex flex-col bg-slate-50 text-slate-800 antialiased selection:bg-emerald-100 selection:text-emerald-900 pb-16 sm:pb-20">
             {/* Navigation Header */}
             <Navbar onNavigate={handleNavigate} currentRoute={currentRoute} />
 
@@ -147,6 +148,9 @@ export default function App() {
 
             {/* Trustworthy Footer */}
             <Footer onNavigate={handleNavigate} />
+
+            {/* Persistent Bottom Navigation Bar (TikTok/Mobile app style) */}
+            <BottomNav onNavigate={handleNavigate} currentRoute={currentRoute} />
           </div>
         </CartProvider>
       </AuthProvider>

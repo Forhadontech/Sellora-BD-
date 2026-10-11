@@ -13,6 +13,9 @@
         "status": { "type": "string", "enum": ["active", "suspended"] },
         "defaultAddress": { "type": "string", "maxLength": 300 },
         "defaultDistrict": { "type": "string", "maxLength": 100 },
+        "avatarUrl": { "type": "string", "maxLength": 2000 },
+        "coverUrl": { "type": "string", "maxLength": 2000 },
+        "bio": { "type": "string", "maxLength": 500 },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
